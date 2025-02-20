@@ -1,0 +1,123 @@
+Objective: Automated Linux Patching System
+Pluggable into customer environments.
+Uses GitHub Actions + Ansible.
+Supports multiple Linux distributions and flavors.
+Fully automated, requiring only repo cloning + SSH setup.
+A test lab will be designed to mimic customer environments.
+
+Cloud VM Model
+
+Pros:
+✅ Customers deploy the patching system in their own environment.
+✅ Lower security risks (no external API calls needed).
+✅ More straightforward implementation (Ansible + GitHub Actions).
+Cons:
+❌ Harder to track usage metrics.
+❌ Limited monetization (one-time license or self-hosted subscription).
+
+Final Repo Structure (Now Includes System Health & Vulnerable Packages Dashboards)
+bash
+Copy
+Edit
+📦 linux-patching-automation  
+├── 📂 terraform  
+│   ├── 📜 main.tf                   # AWS Provider, IAM roles  
+│   ├── 📜 variables.tf               # Input variables (instance types, regions)  
+│   ├── 📜 outputs.tf                 # Outputs (IP addresses, SSH details)  
+│   ├── 📜 control_vm.tf              # Control VM (Ansible, Prometheus, Grafana, Loki)  
+│   ├── 📜 target_vms.tf              # Target VMs (Ubuntu, RHEL, Rocky, Amazon Linux)  
+│   ├── 📜 security_groups.tf         # Security rules (SSH, Loki, Grafana)  
+│   ├── 📜 user_data.sh               # Bootstrap script for Control VM setup  
+│   └── 📜 terraform.tfvars           # Customizable settings  
+│
+├── 📂 ansible  
+│   ├── 📂 roles  
+│   │   ├── 📂 patching  
+│   │   │   ├── 📜 tasks/main.yml    # Apply security patches  
+│   │   ├── 📂 security_scan  
+│   │   │   ├── 📜 tasks/main.yml    # Run Lynis/CIS checks  
+│   │   ├── 📂 monitoring  
+│   │   │   ├── 📜 tasks/main.yml    # Install Prometheus Node Exporter  
+│   │   ├── 📂 logging  
+│   │   │   ├── 📜 tasks/main.yml    # Install Loki & Promtail for log collection  
+│   │   ├── 📂 reporting  
+│   │   │   ├── 📜 tasks/main.yml    # Generate patch reports  
+│   ├── 📜 playbook.yml               # Master playbook  
+│   ├── 📜 pre_patch_security.yml     # Pre-patching security scan  
+│   ├── 📜 patching.yml               # Apply patches  
+│   ├── 📜 post_patch_compliance.yml  # Post-patching compliance check  
+│   ├── 📜 monitoring_setup.yml       # Install Prometheus & Grafana  
+│   ├── 📜 logging_setup.yml          # Install Loki + Promtail  
+│   ├── 📜 reporting.yml              # Generate patch reports  
+│   ├── 📜 vuln_scan.yml              # Scan for vulnerable packages  
+│
+├── 📂 logging  
+│   ├── 📂 loki  
+│   │   ├── 📜 loki-config.yml        # Loki configuration file  
+│   ├── 📂 promtail  
+│   │   ├── 📜 promtail-config.yml    # Promtail configuration (log collection)  
+│
+├── 📂 grafana_dashboards  
+│   ├── 📜 linux_patching_dashboard.json  # Grafana dashboard for patching  
+│   ├── 📜 security_scan_dashboard.json   # CIS scan results visualization  
+│   ├── 📜 patching_status.json           # Patch status metrics  
+│   ├── 📜 logs_dashboard.json            # Loki log visualization in Grafana  
+│   ├── 📜 system_health_dashboard.json   # **CPU, Memory, Storage, System Health** ✅  
+│   ├── 📜 vulnerable_packages.json       # **List of vulnerable Linux packages** ✅  
+│
+├── 📂 logs  
+│   ├── 📜 patching.log             # Patch execution logs  
+│   ├── 📜 security_scan.log        # Pre/Post security scan logs  
+│   ├── 📜 compliance_report.log    # Compliance check results  
+│   ├── 📜 monitoring.log           # Prometheus/Grafana logs  
+│   ├── 📜 loki.log                 # Loki log ingestion logs  
+│   ├── 📜 vulnerable_packages.log  # **Detected vulnerable packages** ✅  
+│   └── 📂 reports/                 # Generated reports  
+│
+├── 📂 github-actions  
+│   ├── 📜 deploy.yml                 # GitHub Actions workflow to deploy Terraform  
+│   ├── 📜 patching.yml               # Workflow to trigger Ansible patching  
+│   ├── 📜 security_scan.yml          # Workflow for security scans before/after patching  
+│   ├── 📜 compliance_report.yml      # Workflow to generate and upload reports  
+│   ├── 📜 monitoring.yml             # Workflow to check Prometheus/Grafana health  
+│   ├── 📜 logging.yml                # Workflow to validate Loki logs  
+│   ├── 📜 vuln_scan.yml              # Workflow for scanning vulnerable packages ✅  
+│
+├── 📂 .github  
+│   ├── 📂 workflows  
+│   │   ├── 📜 deploy.yml            # Terraform deployment via GitHub Actions  
+│   │   ├── 📜 patching.yml          # Ansible patching workflow  
+│   │   ├── 📜 security_scan.yml     # Security scan workflow  
+│   │   ├── 📜 compliance_report.yml # Compliance check workflow  
+│   │   ├── 📜 monitoring.yml        # Monitor patching & security status  
+│   │   ├── 📜 logging.yml           # Validate Loki logs in Grafana  
+│   │   ├── 📜 vuln_scan.yml         # **Detect vulnerable Linux packages & report** ✅  
+│
+├── 📜 README.md                    # Project documentation  
+├── 📜 LICENSE                       # Open-source license  
+└── 📜 .gitignore                    # Ignore unnecessary files  
+
+
+🔹 New Features Added
+✅ System Health Dashboard (Grafana)
+
+CPU Usage
+Memory Utilization
+Disk Storage Monitoring
+Network Traffic
+System Uptime
+Load Average
+✅ Vulnerable Linux Packages Dashboard (Grafana)
+
+List of unpatched CVEs per VM
+Severity levels (High/Medium/Low)
+Affected Packages & Versions
+Security Advisories from yum/dnf/apt
+Patch Status (Fixed/Unpatched)
+✅ Automated Vulnerability Scanning (Ansible + GitHub Actions)
+
+Runs yum list security (RHEL, Rocky, Amazon Linux)
+Runs apt list --upgradable (Ubuntu)
+Parses CVE data & generates reports
+Logs results into vulnerable_packages.log
+Uploads results to Grafana Dashboard
