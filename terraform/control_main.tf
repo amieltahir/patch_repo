@@ -3,9 +3,10 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# Reference the default subnet in the default VPC
+# Reference a specific subnet in the default VPC (with availability zone)
 data "aws_subnet" "default_subnet" {
-  vpc_id = data.aws_vpc.default.id
+  vpc_id            = data.aws_vpc.default.id
+  availability_zone = "us-east-1a"  # Replace with your desired AZ
 }
 
 # Security Group for Control VM
