@@ -9,11 +9,28 @@ data "aws_subnet" "default_subnet" {
   availability_zone = "us-east-1a"  # Replace with your desired AZ
 }
 
+# Generate an RSA key pair for Control VM
+resource "tls_private_key" "control_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# Create the key pair in AWS
+resource "aws_key_pair" "control_key" {
+    key_name   = "control-key"
+      public_key = tls_private_key.control_key.public_key_openssh
+ }
+
+ resource "local_file" "ssh_key" {
+     filename      = "${aws_key_pair.control_key.key_name}.pem"
+       content       = tls_private_key.control_key.private_key_pem
+         file_permission = "0400"
+ }
 # Security Group for Control VM
 resource "aws_security_group" "control_vm_security_group" {
   name        = "control_vm_security_group"
   description = "Allow necessary inbound traffic for control VM"
-  vpc_id      = data.aws_vpc.default.id  # Using the default VPC
+  vpc_id      = data.aws_vpc.default.id
 
   # Allow SSH from Target VM
   ingress {
@@ -78,15 +95,6 @@ resource "aws_security_group" "control_vm_security_group" {
     description = "Allow Grafana access from all sources"
   }
 
-  # Allow Lynis (SSH/Console only, no web UI)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow Lynis SSH/console access"
-  }
-
   # Allow the Control VM to initiate outbound traffic to any destination
   egress {
     from_port   = 0
@@ -103,17 +111,16 @@ resource "aws_security_group" "control_vm_security_group" {
 
 # EC2 instance for Control VM
 resource "aws_instance" "control_vm" {
-  ami           = "ami-0c02fb55956c7d316"  # Replace with a valid Ubuntu AMI
-  instance_type = "t3.micro"
-  key_name      = "control-key"
-  subnet_id     = data.aws_subnet.default_subnet.id
-  security_group_ids = [aws_security_group.control_vm_security_group.id]
+  ami                 = "ami-0c02fb55956c7d316"  # Replace with your desired AMI
+  instance_type       = "t3.micro"
+  key_name            = aws_key_pair.control_key.key_name
+  subnet_id           = data.aws_subnet.default_subnet.id
+  vpc_security_group_ids  = [aws_security_group.control_vm_security_group.id]
 
   tags = {
     Name = "Control-VM"
   }
 
-  # Ensure Control VM has Prometheus, Grafana, OpenVAS, and Lynis setup
   user_data = <<-EOF
               #!/bin/bash
               # Install Prometheus, Grafana, OpenVAS, and Lynis
