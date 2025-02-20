@@ -1,38 +1,18 @@
-# control_vm.tf
-
-resource "aws_instance" "control_vm" {
-  ami           = "ami-0c02fb55956c7d316"  # Replace with a valid Ubuntu AMI
-  instance_type = "t3.micro"
-  key_name      = "control-key"  # Replace with your SSH key name
-  subnet_id     = aws_subnet.subnet.id
-  security_group_ids = [aws_security_group.control_vm_security_group.id]
-
-  tags = {
-    Name = "Control-VM"
-  }
-
-  # Ensure Control VM has Prometheus and Grafana setup
-  user_data = <<-EOF
-              #!/bin/bash
-              # Install Prometheus and Grafana
-              sudo apt update && sudo apt install -y prometheus grafana
-              sudo systemctl enable prometheus
-              sudo systemctl start prometheus
-              sudo systemctl enable grafana-server
-              sudo systemctl start grafana-server
-              EOF
+# Reference the default VPC
+data "aws_vpc" "default" {
+  default = true
 }
 
-# Output the public IP of the Control VM
-output "control_vm_ip" {
-  value = aws_instance.control_vm.public_ip
+# Reference the default subnet in the default VPC
+data "aws_subnet" "default_subnet" {
+  vpc_id = data.aws_vpc.default.id
 }
 
 # Security Group for Control VM
 resource "aws_security_group" "control_vm_security_group" {
   name        = "control_vm_security_group"
   description = "Allow necessary inbound traffic for control VM"
-  vpc_id      = aws_vpc.default.id  # Using the default VPC
+  vpc_id      = data.aws_vpc.default.id  # Using the default VPC
 
   # Allow SSH from Target VM
   ingress {
@@ -59,15 +39,6 @@ resource "aws_security_group" "control_vm_security_group" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow HTTPS access from all sources"
-  }
-
-  # Allow Nessus (8834) Web Interface
-  ingress {
-    from_port   = 8834
-    to_port     = 8834
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow Nessus access from all sources"
   }
 
   # Allow OpenVAS (9390) Web Interface
@@ -106,6 +77,15 @@ resource "aws_security_group" "control_vm_security_group" {
     description = "Allow Grafana access from all sources"
   }
 
+  # Allow Lynis (SSH/Console only, no web UI)
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow Lynis SSH/console access"
+  }
+
   # Allow the Control VM to initiate outbound traffic to any destination
   egress {
     from_port   = 0
@@ -118,4 +98,32 @@ resource "aws_security_group" "control_vm_security_group" {
   tags = {
     Name = "Control-VM-Security-Group"
   }
+}
+
+# EC2 instance for Control VM
+resource "aws_instance" "control_vm" {
+  ami           = "ami-0c02fb55956c7d316"  # Replace with a valid Ubuntu AMI
+  instance_type = "t3.micro"
+  key_name      = "control-key"
+  subnet_id     = data.aws_subnet.default_subnet.id
+  security_group_ids = [aws_security_group.control_vm_security_group.id]
+
+  tags = {
+    Name = "Control-VM"
+  }
+
+  # Ensure Control VM has Prometheus, Grafana, OpenVAS, and Lynis setup
+  user_data = <<-EOF
+              #!/bin/bash
+              # Install Prometheus, Grafana, OpenVAS, and Lynis
+              sudo apt update && sudo apt install -y prometheus grafana openvas lynis
+              sudo systemctl enable prometheus
+              sudo systemctl start prometheus
+              sudo systemctl enable grafana-server
+              sudo systemctl start grafana-server
+              sudo systemctl enable openvas-scanner
+              sudo systemctl start openvas-scanner
+              sudo systemctl enable lynis
+              sudo systemctl start lynis
+              EOF
 }
