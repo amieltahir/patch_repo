@@ -111,7 +111,7 @@ resource "aws_security_group" "control_vm_security_group" {
 
 # EC2 instance for Control VM
 resource "aws_instance" "control_vm" {
-  ami                 = "ami-0c02fb55956c7d316"  # Replace with your desired AMI
+  ami                 = "ami-0e1bed4f06a3b463d"  # Replace with your desired AMI
   instance_type       = "t3.micro"
   key_name            = aws_key_pair.control_key.key_name
   subnet_id           = data.aws_subnet.default_subnet.id
