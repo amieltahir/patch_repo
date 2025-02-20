@@ -1,9 +1,9 @@
 # control_vm.tf
 
 resource "aws_instance" "control_vm" {
-  ami           = "ami-12345678"  # Replace with a valid Ubuntu AMI
-  instance_type = "t2.micro"
-  key_name      = "your-key-name"  # Replace with your SSH key name
+  ami           = "ami-0c02fb55956c7d316"  # Replace with a valid Ubuntu AMI
+  instance_type = "t3.micro"
+  key_name      = "control-key"  # Replace with your SSH key name
   subnet_id     = aws_subnet.subnet.id
   security_group_ids = [aws_security_group.control_vm_security_group.id]
 
