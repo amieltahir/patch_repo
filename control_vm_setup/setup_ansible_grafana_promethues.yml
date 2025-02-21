@@ -1,0 +1,205 @@
+---
+- name: Setup Ansible, Prometheus, and Grafana on Control VM
+  hosts: localhost
+  become: true
+  tasks:
+
+    # Install Ansible
+    - name: Install Ansible
+      apt:
+        name: ansible
+        state: present
+      when: ansible_facts.packages is not defined or ansible_facts.packages['ansible'] is not defined
+
+    # Create ansible user
+    - name: Create ansible user
+      user:
+        name: ansible
+        shell: /bin/bash
+        state: present
+        create_home: yes
+
+    # Give ansible user sudo privileges
+    - name: Add ansible user to sudo group
+      user:
+        name: ansible
+        groups: sudo
+        append: yes
+
+    # Generate SSH key for ansible user
+    - name: Create SSH key for ansible user
+      ansible.builtin.openssh_keypair:
+        path: "/home/ansible/.ssh/id_rsa"
+        owner: ansible
+        group: ansible
+        mode: '0600'
+      become: yes
+
+    # Set up passwordless SSH access for ansible user to control VM
+    - name: Setup passwordless SSH access for ansible user
+      authorized_key:
+        user: ansible
+        state: present
+        key: "{{ lookup('file', '/home/ansible/.ssh/id_rsa.pub') }}"
+      become: yes
+
+    # Download Prometheus
+    - name: Download Prometheus
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v2.51.2/prometheus-2.51.2.linux-amd64.tar.gz"
+        dest: "/tmp/prometheus.tar.gz"
+        mode: '0644'
+
+    # Extract Prometheus tarball
+    - name: Extract Prometheus tarball
+      unarchive:
+        src: "/tmp/prometheus.tar.gz"
+        dest: "/tmp/"
+        remote_src: yes
+
+    # Move Prometheus binaries to /usr/local/bin/
+    - name: Move Prometheus binaries
+      command: mv /tmp/prometheus-2.51.2.linux-amd64/{{ item }} /usr/local/bin/
+      with_items:
+        - prometheus
+        - promtool
+      become: yes
+
+    # Create Prometheus user
+    - name: Create Prometheus user
+      user:
+        name: prometheus
+        shell: /bin/false
+        create_home: yes
+        state: present
+      become: yes
+
+    # Create necessary directories for Prometheus
+    - name: Create Prometheus directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      with_items:
+        - /etc/prometheus
+        - /var/lib/prometheus
+      become: yes
+
+    # Set up Prometheus systemd service
+    - name: Set up Prometheus systemd service
+      template:
+        src: prometheus.service.j2
+        dest: /etc/systemd/system/prometheus.service
+      become: yes
+
+    # Reload systemd to pick up the new Prometheus service
+    - name: Reload systemd to pick up the new Prometheus service
+      systemd:
+        daemon_reload: yes
+      become: yes
+
+    # Start Prometheus service
+    - name: Start Prometheus service
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+      become: yes
+
+    # Install dependencies for adding APT repositories
+    - name: Install dependencies for adding APT repositories
+      apt:
+        name:
+          - software-properties-common
+          - gnupg
+        state: present
+        update_cache: yes
+
+    # Add Grafana GPG key
+    - name: Add Grafana GPG key
+      apt_key:
+        url: https://packages.grafana.com/gpg.key
+        state: present
+
+    # Add Grafana APT repository
+    - name: Add Grafana APT repository
+      apt_repository:
+        repo: 'deb https://packages.grafana.com/oss/deb stable main'
+        state: present
+        filename: grafana
+        update_cache: yes
+
+    # Install Grafana
+    - name: Install Grafana
+      apt:
+        name: grafana
+        state: present
+        update_cache: yes
+
+    # Create Grafana user
+    - name: Create Grafana user
+      user:
+        name: grafana
+        system: yes
+        shell: /usr/sbin/nologin
+        comment: "Grafana user"
+      become: yes
+
+    # Assign ownership of Grafana directory to the grafana user
+    - name: Assign ownership of Grafana directory to grafana user
+      file:
+        path: /var/lib/grafana
+        owner: grafana
+        group: grafana
+        recurse: yes
+      become: yes
+
+    # Start and enable Grafana service
+    - name: Start Grafana service
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
+      become: yes
+
+    # Open Grafana port in firewall (if UFW is used)
+    - name: Open Grafana port in firewall (3000/tcp)
+      ufw:
+        rule: allow
+        port: '3000'
+        proto: tcp
+        comment: 'Allow Grafana'
+      become: yes
+
+    # Open Prometheus port in firewall (if UFW is used)
+    - name: Open Prometheus port in firewall (9090/tcp)
+      ufw:
+        rule: allow
+        port: '9090'
+        proto: tcp
+        comment: 'Allow Prometheus'
+      become: yes
+
+    - name: Ensure Prometheus configuration file exists
+      copy:
+        dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+
+    - name: Reload systemd and restart Prometheus
+      systemd:
+        name: prometheus
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
