@@ -1,0 +1,106 @@
+- name: Temporarily spike CPU, memory, disk, and network usage
+  hosts: localhost
+  become: true
+
+  vars:
+    stress_duration: 60  # Duration of stress test in seconds
+    stress_cpu_workers: 4  # Number of CPU workers
+    stress_memory_size: "512M"  # Memory size to allocate
+    stress_disk_size: "1G"  # Disk size to write
+    stress_network_packets: 1000  # Number of network packets to send
+
+  tasks:
+    # 1. Install stress and iperf (if not already installed)
+    - name: Install stress and iperf
+      apt:
+        name:
+          - stress
+          - iperf
+        state: present
+        update_cache: yes
+
+    # 2. Spike CPU usage
+    - name: Stress CPU
+      command: >
+        stress --cpu {{ stress_cpu_workers }} --timeout {{ stress_duration }}
+      async: "{{ stress_duration + 10 }}"  # Allow extra time for cleanup
+      poll: 0  # Run asynchronously
+      register: stress_cpu_job
+
+    # 3. Spike memory usage
+    - name: Stress memory
+      command: >
+        stress --vm 2 --vm-bytes {{ stress_memory_size }} --timeout {{ stress_duration }}
+      async: "{{ stress_duration + 10 }}"
+      poll: 0
+      register: stress_memory_job
+
+    # 4. Spike disk usage
+    - name: Stress disk
+      command: >
+        stress --io 2 --hdd 1 --hdd-bytes {{ stress_disk_size }} --timeout {{ stress_duration }}
+      async: "{{ stress_duration + 10 }}"
+      poll: 0
+      register: stress_disk_job
+
+    # 5. Spike network traffic
+    - name: Start iperf server (for network stress)
+      command: >
+        iperf -s
+      async: "{{ stress_duration + 10 }}"
+      poll: 0
+      register: iperf_server_job
+
+    - name: Stress network (send packets to localhost)
+      command: >
+        iperf -c localhost -n {{ stress_network_packets }}
+      async: "{{ stress_duration + 10 }}"
+      poll: 0
+      register: iperf_client_job
+
+    # 6. Wait for stress tests to complete
+    - name: Wait for CPU stress test to finish
+      async_status:
+        jid: "{{ stress_cpu_job.ansible_job_id }}"
+      register: cpu_job_result
+      until: cpu_job_result.finished
+      retries: 30
+      delay: 10
+
+    - name: Wait for memory stress test to finish
+      async_status:
+        jid: "{{ stress_memory_job.ansible_job_id }}"
+      register: memory_job_result
+      until: memory_job_result.finished
+      retries: 30
+      delay: 10
+
+    - name: Wait for disk stress test to finish
+      async_status:
+        jid: "{{ stress_disk_job.ansible_job_id }}"
+      register: disk_job_result
+      until: disk_job_result.finished
+      retries: 30
+      delay: 10
+
+    - name: Wait for iperf server to finish
+      async_status:
+        jid: "{{ iperf_server_job.ansible_job_id }}"
+      register: iperf_server_result
+      until: iperf_server_result.finished
+      retries: 30
+      delay: 10
+
+    - name: Wait for iperf client to finish
+      async_status:
+        jid: "{{ iperf_client_job.ansible_job_id }}"
+      register: iperf_client_result
+      until: iperf_client_result.finished
+      retries: 30
+      delay: 10
+
+    # 7. Clean up iperf server
+    - name: Stop iperf server
+      command: >
+        pkill iperf
+      ignore_errors: yes
