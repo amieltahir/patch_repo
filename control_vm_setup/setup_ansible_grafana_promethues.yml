@@ -203,3 +203,50 @@
         state: restarted
         enabled: yes
         daemon_reload: yes
+
+    - name: Download prometheus-node-exporter package
+      get_url:
+        url: http://archive.ubuntu.com/ubuntu/pool/universe/p/prometheus-node-exporter/prometheus-node-exporter_1.3.1-1ubuntu0.22.04.3_amd64.deb
+        dest: /tmp/prometheus-node-exporter.deb
+
+    - name: Install prometheus-node-exporter without running post-install scripts
+      command: >
+        dpkg --force-all --skip-same-version -i /tmp/prometheus-node-exporter.deb
+      args:
+        creates: /usr/bin/prometheus-node-exporter
+
+    - name: Copy Node Exporter service file to /etc/systemd/system/
+      copy:
+        src: /lib/systemd/system/prometheus-node-exporter.service
+        dest: /etc/systemd/system/prometheus-node-exporter.service
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0644'
+
+
+    - name: Configure Node Exporter to use the existing prometheus user
+      lineinfile:
+        path: /etc/systemd/system/prometheus-node-exporter.service
+        regexp: '^User='
+        line: 'User=prometheus'
+        insertafter: '^\[Service\]'
+      notify: Reload systemd and restart Node Exporter
+
+    - name: Ensure Node Exporter service is enabled and running
+      systemd:
+        name: prometheus-node-exporter
+        state: started
+        enabled: yes
+
+    - name: Clean up downloaded package
+      file:
+        path: /tmp/prometheus-node-exporter.deb
+        state: absent
+
+  handlers:
+    - name: Reload systemd and restart Node Exporter
+      systemd:
+        name: prometheus-node-exporter
+        state: restarted
+        daemon_reload: yes
