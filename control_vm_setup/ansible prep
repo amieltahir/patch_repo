@@ -16,3 +16,10 @@ sudo usermod -aG sudo ansible  # Grant sudo access
 ✅ Creates prometheus user (no login) and installs Prometheus as a systemd service.
 ✅ Creates grafana user (no login) and installs Grafana via APT repo.
 ✅ Ensures both services are enabled and started on boot.
+
+4. 
+
+✅ created ansible playbook to setup ansible user, and grafana and promethues on control VM 
+✅ created ansible playbook to setup local node exporter on control VM 
+
+
