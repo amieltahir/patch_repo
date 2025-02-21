@@ -19,7 +19,11 @@ sudo usermod -aG sudo ansible  # Grant sudo access
 
 4. 
 
-✅ created ansible playbook to setup ansible user, and grafana and promethues on control VM 
-✅ created ansible playbook to setup local node exporter on control VM 
+✅ created ansible playbook to setup ansible user, and grafana and promethues also setup node exporter on control VM 
+✅ created ansible playbook to setup local node exporter remote target VM 
+✅ create ansible playbook to create grafana service account token add prom datasource on control VM
+✅ imported node export dashboard -  Dashboard ID 1860 / Node Exporter Server Metrics: Dashboard ID 11074
+✅ created stress load generating ansible-playbook to execute on control VM or target VMs 
+
 
 
