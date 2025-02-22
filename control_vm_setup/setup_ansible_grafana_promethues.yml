@@ -35,7 +35,7 @@
         mode: '0600'
       become: yes
 
-    # Set up passwordless SSH access for ansible user to control VM
+    # Set up passwordless SSH access for ansible user
     - name: Setup passwordless SSH access for ansible user
       authorized_key:
         user: ansible
@@ -65,13 +65,18 @@
         - promtool
       become: yes
 
-    # Create Prometheus user
-    - name: Create Prometheus user
+    # Create Prometheus system user
+    - name: Create Prometheus system user
       user:
         name: prometheus
+        system: yes
         shell: /bin/false
-        create_home: yes
+        create_home: no
         state: present
+
+    # Lock the Prometheus user
+    - name: Lock Prometheus user
+      command: usermod -L prometheus
       become: yes
 
     # Create necessary directories for Prometheus
@@ -81,7 +86,7 @@
         state: directory
         owner: prometheus
         group: prometheus
-        mode: '0755'
+        mode: '0775'
       with_items:
         - /etc/prometheus
         - /var/lib/prometheus
@@ -95,7 +100,7 @@
       become: yes
 
     # Reload systemd to pick up the new Prometheus service
-    - name: Reload systemd to pick up the new Prometheus service
+    - name: Reload systemd
       systemd:
         daemon_reload: yes
       become: yes
@@ -108,80 +113,7 @@
         enabled: yes
       become: yes
 
-    # Install dependencies for adding APT repositories
-    - name: Install dependencies for adding APT repositories
-      apt:
-        name:
-          - software-properties-common
-          - gnupg
-        state: present
-        update_cache: yes
-
-    # Add Grafana GPG key
-    - name: Add Grafana GPG key
-      apt_key:
-        url: https://packages.grafana.com/gpg.key
-        state: present
-
-    # Add Grafana APT repository
-    - name: Add Grafana APT repository
-      apt_repository:
-        repo: 'deb https://packages.grafana.com/oss/deb stable main'
-        state: present
-        filename: grafana
-        update_cache: yes
-
-    # Install Grafana
-    - name: Install Grafana
-      apt:
-        name: grafana
-        state: present
-        update_cache: yes
-
-    # Create Grafana user
-    - name: Create Grafana user
-      user:
-        name: grafana
-        system: yes
-        shell: /usr/sbin/nologin
-        comment: "Grafana user"
-      become: yes
-
-    # Assign ownership of Grafana directory to the grafana user
-    - name: Assign ownership of Grafana directory to grafana user
-      file:
-        path: /var/lib/grafana
-        owner: grafana
-        group: grafana
-        recurse: yes
-      become: yes
-
-    # Start and enable Grafana service
-    - name: Start Grafana service
-      systemd:
-        name: grafana-server
-        state: started
-        enabled: yes
-      become: yes
-
-    # Open Grafana port in firewall (if UFW is used)
-    - name: Open Grafana port in firewall (3000/tcp)
-      ufw:
-        rule: allow
-        port: '3000'
-        proto: tcp
-        comment: 'Allow Grafana'
-      become: yes
-
-    # Open Prometheus port in firewall (if UFW is used)
-    - name: Open Prometheus port in firewall (9090/tcp)
-      ufw:
-        rule: allow
-        port: '9090'
-        proto: tcp
-        comment: 'Allow Prometheus'
-      become: yes
-
+    # Ensure Prometheus configuration file exists
     - name: Ensure Prometheus configuration file exists
       copy:
         dest: /etc/prometheus/prometheus.yml
@@ -202,51 +134,4 @@
         name: prometheus
         state: restarted
         enabled: yes
-        daemon_reload: yes
-
-    - name: Download prometheus-node-exporter package
-      get_url:
-        url: http://archive.ubuntu.com/ubuntu/pool/universe/p/prometheus-node-exporter/prometheus-node-exporter_1.3.1-1ubuntu0.22.04.3_amd64.deb
-        dest: /tmp/prometheus-node-exporter.deb
-
-    - name: Install prometheus-node-exporter without running post-install scripts
-      command: >
-        dpkg --force-all --skip-same-version -i /tmp/prometheus-node-exporter.deb
-      args:
-        creates: /usr/bin/prometheus-node-exporter
-
-    - name: Copy Node Exporter service file to /etc/systemd/system/
-      copy:
-        src: /lib/systemd/system/prometheus-node-exporter.service
-        dest: /etc/systemd/system/prometheus-node-exporter.service
-        remote_src: yes
-        owner: root
-        group: root
-        mode: '0644'
-
-
-    - name: Configure Node Exporter to use the existing prometheus user
-      lineinfile:
-        path: /etc/systemd/system/prometheus-node-exporter.service
-        regexp: '^User='
-        line: 'User=prometheus'
-        insertafter: '^\[Service\]'
-      notify: Reload systemd and restart Node Exporter
-
-    - name: Ensure Node Exporter service is enabled and running
-      systemd:
-        name: prometheus-node-exporter
-        state: started
-        enabled: yes
-
-    - name: Clean up downloaded package
-      file:
-        path: /tmp/prometheus-node-exporter.deb
-        state: absent
-
-  handlers:
-    - name: Reload systemd and restart Node Exporter
-      systemd:
-        name: prometheus-node-exporter
-        state: restarted
         daemon_reload: yes
