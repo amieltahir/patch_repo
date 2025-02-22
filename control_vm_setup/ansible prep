@@ -12,18 +12,19 @@ sudo usermod -aG sudo ansible  # Grant sudo access
 
 3.
 
-✅ Creates ansible user with sudo privileges & SSH key.
-✅ Creates prometheus user (no login) and installs Prometheus as a systemd service.
-✅ Creates grafana user (no login) and installs Grafana via APT repo.
-✅ Ensures both services are enabled and started on boot.
+✅ Created ansible user with sudo privileges & SSH key.
+✅ Created prometheus user (no login) and installs Prometheus as a systemd service.
+✅ Created grafana user (no login) and installs Grafana via APT repo.
+✅ Ensured both services are enabled and started on boot.
 
 4. 
 
 ✅ created ansible playbook to setup ansible user, and grafana and promethues also setup node exporter on control VM 
 ✅ created ansible playbook to setup local node exporter remote target VM 
-✅ create ansible playbook to create grafana service account token add prom datasource on control VM
-✅ imported node export dashboard -  Dashboard ID 1860 / Node Exporter Server Metrics: Dashboard ID 11074
+✅ created ansible playbook to create grafana service account token add prom datasource on control VM
+✅ imported node export dashboard -  Dashboard ID 1860 / Node Exporter Server Metrics: Dashboard ID 11074 - Linux Server Metrics Dashboard imported
 ✅ created stress load generating ansible-playbook to execute on control VM or target VMs 
 
+5. 
 
 
