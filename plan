@@ -15,21 +15,6 @@ Cons:
 ❌ Harder to track usage metrics.
 ❌ Limited monetization (one-time license or self-hosted subscription).
 
-Final Repo Structure (Now Includes System Health & Vulnerable Packages Dashboards)
-bash
-Copy
-Edit
-📦 linux-patching-automation  
-├── 📂 terraform  
-│   ├── 📜 main.tf                   # AWS Provider, IAM roles  
-│   ├── 📜 variables.tf               # Input variables (instance types, regions)  
-│   ├── 📜 outputs.tf                 # Outputs (IP addresses, SSH details)  
-│   ├── 📜 control_vm.tf              # Control VM (Ansible, Prometheus, Grafana, Loki)  
-│   ├── 📜 target_vms.tf              # Target VMs (Ubuntu, RHEL, Rocky, Amazon Linux)  
-│   ├── 📜 security_groups.tf         # Security rules (SSH, Loki, Grafana)  
-│   ├── 📜 user_data.sh               # Bootstrap script for Control VM setup  
-│   └── 📜 terraform.tfvars           # Customizable settings  
-│
 ├── 📂 ansible  
 │   ├── 📂 roles  
 │   │   ├── 📂 patching  
@@ -95,7 +80,7 @@ Edit
 │
 ├── 📜 README.md                    # Project documentation  
 ├── 📜 LICENSE                       # Open-source license  
-└── 📜 .gitignore                    # Ignore unnecessary files  
+└── 📜 .gitignore                    # Ignore unnecessary files
 
 
 🔹 New Features Added
